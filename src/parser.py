@@ -28,7 +28,11 @@ def validate_hub(values: str, line_no: int, type: str = None) -> Zone:
         raise ParsingError(f"Syntax error at line {line_no}, " +
                            "line should end with ']'")
     atts[3] = atts[3][1:]
+    if (atts[3] == ""):
+        atts.pop(3)
     atts[-1] = atts[-1][:-1]
+    if (atts[-1] == ""):
+        atts.pop(-1)
     for att in atts[3:]:
         if (len(att.split("=")) != 2):
             raise ParsingError(f"Syntax error at line {line_no}, " +
@@ -99,12 +103,19 @@ def validate_con(values: str, line_no: int, zones: list[Zone]) -> Connection:
 
 
 def parse(input_file: str):
+    """Parse the input file and check whether it abides by the pre-defined
+     format structure of drone maps
+
+    Args:
+        input_file: path of the map file
+    """
     try:
         with open(input_file, 'r') as f:
             content = f.read()
     except Exception as e:
         raise ParsingError("Error reading map file\n" + str(e))
     lines = content.split("\n")
+    # Check for nb_drones
     for line_no, line in enumerate(lines):
         line = line.strip()
         if (line == "" or line[0] == '#'):
@@ -124,6 +135,7 @@ def parse(input_file: str):
     if nb_drones <= 0:
         raise ParsingError("nb_drones must be a positive int")
 
+    # Check for zone definitions
     zones: dict[str, Zone] = {}
     start_hub = None
     end_hub = None
@@ -165,12 +177,22 @@ def parse(input_file: str):
             zones[end_hub.name] = end_hub
         else:
             raise ParsingError(f"Undefined directive at line #{l_num}")
+    for zone1 in zones.values():
+        for zone2 in zones.values():
+            if (zone1.name == zone2.name):
+                continue
+            if (zone1.x == zone2.x and zone1.y == zone2.y):
+                raise ParsingError(
+                    f"Zones '{zone1.name}' and '{zone2.name}'"
+                    " have the same coordinates"
+                    )
 
     if (not start_hub):
         raise ParsingError("start_hub is not declared")
     elif (not end_hub):
         raise ParsingError("end_hub is not declared")
 
+    # Check for connection definitions
     connections: list[Connection] = []
     line_no = l_num
     for l_num in range(line_no, len(lines)):
