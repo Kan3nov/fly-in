@@ -40,12 +40,14 @@ def validate_hub(values: str, line_no: int, type: str = None) -> Zone:
         key, value = att.split("=")
         try:
             if (key == "zone"):
-                hub.type = ZoneType(value)
+                hub.type = ZoneType[value.upper()]
             elif (key == "color"):
                 hub.color = value
             elif (key == "max_drones"):
                 hub.max_drones = value
-        except (ValueError, KeyError) as e:
+            else:
+                raise KeyError
+        except KeyError as e:
             raise ParsingError(f"Syntax error at line {line_no}, " +
                                f"Invalid meta-data key '{key}'\n" + str(e))
         except ValidationError as e:
@@ -221,7 +223,8 @@ def parse(input_file: str):
                     )
     drones = []
     for x in range(nb_drones):
-        drones.append(Drone(id=x, visited=[start_hub], current=start_hub))
+        drones.append(Drone(id=x, visited=set([start_hub.name]),
+                            cur=start_hub))
     return Network(
         nb_drones=nb_drones,
         start_hub=start_hub,
