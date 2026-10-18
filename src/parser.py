@@ -1,6 +1,6 @@
 try:
     from utils import ParsingError
-    from models import Network, Zone, ZoneType, Connection
+    from models import Network, Zone, ZoneType, Connection, Drone
     from pydantic import ValidationError
 except Exception as e:
     print("=" * 5, "Import Error", '=' * 5)
@@ -75,6 +75,8 @@ def validate_con(values: str, line_no: int, zones: list[Zone]) -> Connection:
     elif (zone2 not in zones.keys()):
         raise ParsingError(f"Undefined zone name '{zone2}' in line {line_no}")
     con = Connection(zone1=zones[zone1], zone2=zones[zone2])
+    con.zone1.neighbors.append(con.zone2)
+    con.zone2.neighbors.append(con.zone1)
     if (len(atts) == 1):
         return con
 
@@ -217,11 +219,14 @@ def parse(input_file: str):
                     "Duplicate connection declarations found for " +
                     f"{str(connections[idx1])}"
                     )
-
+    drones = []
+    for x in range(nb_drones):
+        drones.append(Drone(id=x, visited=[start_hub], current=start_hub))
     return Network(
         nb_drones=nb_drones,
         start_hub=start_hub,
         end_hub=end_hub,
         zones=list(zones.values()),
-        cons=connections
+        cons=connections,
+        drones=drones
         )

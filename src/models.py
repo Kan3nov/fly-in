@@ -13,6 +13,12 @@ class ZoneType(Enum):
     PRIORITY = "priority"
 
 
+class Drone(BaseModel):
+    id: int = Field(ge=0)
+    visited: list[Zone]
+    current: Zone
+
+
 class Network(BaseModel):
     # Enable validation on assignment
     model_config = ConfigDict(validate_assignment=True)
@@ -22,6 +28,7 @@ class Network(BaseModel):
     end_hub: Zone
     zones: list[Zone]
     cons: list[Connection]
+    drones: list[Drone]
 
     def __str__(self) -> str:
         return f"nb_drones: {self.nb_drones} " +\
@@ -42,6 +49,7 @@ class Zone(BaseModel):
     max_drones: int = Field(default=1, ge=1)
     color: Optional[str] = Field(default=None)
     type: ZoneType = Field(default=ZoneType.NORMAL)
+    neighbors: list[Zone] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check(self) -> "Zone":
