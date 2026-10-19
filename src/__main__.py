@@ -17,7 +17,7 @@ if __name__ == "__main__":
     print("the distance between start and end :",
           graph.ucs(graph.start_hub, graph.end_hub, set(), dists))
     while not graph.next_turn():
-        print("turn:", graph.turn_count)
+        ...
     print("number of turns: ", graph.turn_count)
     for move in graph.moves:
         print(" ".join(move))

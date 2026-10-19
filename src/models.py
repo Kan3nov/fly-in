@@ -22,6 +22,7 @@ class Drone(BaseModel):
     cur: Zone
     mid_of_link: Literal[0, 1] = Field(default=0)
     moved: bool = Field(default=False)
+    far_dest: Optional[Zone] = Field(default=None)
 
     def visit(self, next: Optional[Zone], con: Optional[Connection]) -> str:
         """
@@ -39,15 +40,17 @@ class Drone(BaseModel):
 
         # If in the midst of a restricted connection
         if (self.mid_of_link == 1):
+            move = f"D{self.id}-{self.cur.name}-{next.name}"
             self.cur = next
             self.mid_of_link = (self.mid_of_link + 1) % 2
-            return f"D{self.id}-{next.name}"
+            return move
 
         # For drones on the start of a restricted link
         elif (next.drone_count < next.max_drones and
                 con.drone_count < con.link_cap and
                 next.type == ZoneType.RESTRICTED):
             self.visited.add(self.cur.name)
+            self.far_dest = next
             if (self.cur.drone_count == self.cur.max_drones):
                 self.cur.wait -= 1
             self.cur.drone_count -= 1
@@ -237,9 +240,12 @@ class Network(BaseModel):
                     continue
                 finish = 0
                 if (drone.mid_of_link == 1):
-                    self.moves[-1].append(drone.visit(None, None))
-                    drone.moved = True
-                    changed = 1
+                    move = drone.visit(drone.far_dest, None)
+                    self.moves[-1].append(move)
+                    drone.moved = bool(move)
+                    changed = int(drone.moved)
+                    print("move: ", move, "changed: ", changed)
+                    continue
                 paths: list[list[Optional[Zone], float]] = []
                 prio_path = [None, float("inf")]
                 next_zone = None
