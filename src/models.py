@@ -20,16 +20,58 @@ class Drone(BaseModel):
     id: int = Field(ge=0)
     visited: set[str]
     cur: Zone
-    move: Literal[0, 1] = Field(default=0)
+    mid_of_link: Literal[0, 1] = Field(default=0)
+    moved: bool = Field(default=False)
 
-    def visit(self, next: Zone) -> None:
-        if (next.drone_count < next.max_drones):
+    def visit(self, next: Optional[Zone], con: Optional[Connection]) -> str:
+        """
+        things to update:
+            next, cur:
+                - drone_count
+                - wait
+            con:
+                - drone_count
+            self.cur = ?
+            self.mid_of_link
+        """
+        if self.moved:
+            return ""
+
+        # If in the midst of a restricted connection
+        if (self.mid_of_link == 1):
+            self.cur = next
+            self.mid_of_link = (self.mid_of_link + 1) % 2
+            return f"D{self.id}-{next.name}"
+
+        # For drones on the start of a restricted link
+        elif (next.drone_count < next.max_drones and
+                con.drone_count < con.link_cap and
+                next.type == ZoneType.RESTRICTED):
+            self.visited.add(self.cur.name)
+            if (self.cur.drone_count == self.cur.max_drones):
+                self.cur.wait -= 1
             self.cur.drone_count -= 1
-            self.cur.wait -= 1
+            next.drone_count += 1
+            con.drone_count += 1
+            if (next.max_drones == next.drone_count):
+                next.wait += 1
+            self.mid_of_link = (self.mid_of_link + 1) % 2
+            return f"D{self.id}-{next.name}"
+
+        # For non-restricted zones
+        elif (next.drone_count < next.max_drones and
+                con.drone_count < con.link_cap):
+            self.visited.add(self.cur.name)
+            if (self.cur.drone_count == self.cur.max_drones):
+                self.cur.wait -= 1
+            self.cur.drone_count -= 1
+            con.drone_count += 1
             next.drone_count += 1
             self.cur = next
-        if (next[0].max_drones == next[0].drone_count):
-            next.wait += 1
+            if (next.max_drones == next.drone_count):
+                next.wait += 1
+            return f"D{self.id}-{next.name}"
+        return ""
 
 
 class Network(BaseModel):
@@ -37,13 +79,13 @@ class Network(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     nb_drones: int = Field(ge=1)
-    moves: int = Field(default=0, ge=0)
     start_hub: Zone
     end_hub: Zone
     zones: list[Zone]
-    cons: list[Connection]
+    cons: dict[tuple[str, str], Connection]
     drones: list[Drone]
     turn_count: int = Field(default=0, ge=0)
+    moves: list[list[str]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check(self) -> "Zone":
@@ -61,12 +103,26 @@ class Network(BaseModel):
         return f"nb_drones: {self.nb_drones} " +\
                f"Start: {self.start_hub.name}, End: {self.end_hub.name}" +\
                f"\nzones: {[x.name for x in self.zones]}\n" +\
-               f"connections: {[str(x) for x in self.cons]}"
+               f"connections: {[str(x) for x in self.cons.values()]}"
 
     # A*
     @staticmethod
     def a_star(start: Zone, end: Zone, visited: set[Zone],
                dists: dict[str, float]) -> float:
+        """
+        Find the shortest path from a start node to the end node.
+
+        Adds the distance heuristc to the search which reduces the number
+        of searchs needed.
+
+        Args:
+            start: the node from which the path starts
+            end: the goal node where the path ends.
+            visited: already visited nodes which don't need to be explored.
+            dists: dictionary of all zones with their relative distance values.
+        Returns:
+            dict[str, float]: the overall distance from the start to the end.
+        """
         dists[start.name] = 0
         unvisited = []  # minimum heap
         counter = count()
@@ -93,6 +149,17 @@ class Network(BaseModel):
     @staticmethod
     def ucs(start: Zone, end: Zone, visited: set[Zone],
             dists: dict[str, float]) -> float:
+        """
+        Find the shortest path from a start node to the end node.
+
+        Args:
+            start: the node from which the path starts
+            end: the goal node where the path ends.
+            visited: already visited nodes which don't need to be explored.
+            dists: dictionary of all zones with their relative distance values.
+        Returns:
+            dict[str, float]: the overall distance from the start to the end.
+        """
         dists[start.name] = 0
         unvisited = []  # minimum heap
         counter = count()
@@ -157,25 +224,35 @@ class Network(BaseModel):
         dists = {zone.name: float("inf") for zone in self.zones}
         changed = 1
         finish = 0
-        while changed and not finish:
+        self.moves.append([])
+        for con in self.cons.values():
+            con.drone_count = 0
+        for drone in self.drones:
+            drone.moved = False
+        while (changed and not finish):
             finish = 1
+            changed = 0
             for drone in self.drones:
                 if (drone.cur == self.end_hub):
                     continue
                 finish = 0
-                paths: list[tuple[Optional[Zone], float]] = []
-                prio_path = (None, float("inf"))
+                if (drone.mid_of_link == 1):
+                    self.moves[-1].append(drone.visit(None, None))
+                    drone.moved = True
+                    changed = 1
+                paths: list[list[Optional[Zone], float]] = []
+                prio_path = [None, float("inf")]
                 next_zone = None
                 for nebr in drone.cur.neighbors:
-                    paths.append((nebr,
+                    paths.append([nebr,
                                   Network.ucs(nebr,
                                               self.end_hub,
                                               drone.visited.copy(),
-                                              dists.copy()))
+                                              dists.copy())]
                                  )
-                    if nebr.type == (ZoneType.PRIORITY and
-                                     paths[-1][1] < prio_path[1]):
-                        prio_path = (nebr, paths[-1][1])
+                    if (nebr.type == ZoneType.PRIORITY and
+                            paths[-1][1] < prio_path[1]):
+                        prio_path = [nebr, paths[-1][1]]
                 for path in paths:
                     path[1] += path[0].wait
                 min_path = min(paths, key=lambda x: x[1])
@@ -185,9 +262,15 @@ class Network(BaseModel):
                     next_zone = prio_path[0]
                 else:
                     next_zone = min_path[0]
-                drone.visit(next_zone)
-        if not finish:
-            self.turn_count += 1
+                con = self.cons.get((drone.cur.name, next_zone.name))
+                if (not con):
+                    con = self.cons.get((next_zone.name, drone.cur.name))
+                move = drone.visit(next_zone, con)
+                if (move):
+                    drone.moved = True
+                    changed = 1
+                    self.moves[-1].append(move)
+        self.turn_count += 1
         return finish
 
 
@@ -233,11 +316,20 @@ class Connection(BaseModel):
     # Enable validation on assignment
     model_config = ConfigDict(validate_assignment=True)
 
-    link_cap: int = Field(default=1, ge=1)
     zone1: Zone
     zone2: Zone
+    link_cap: int = Field(default=1, ge=1)
+    drone_count: int = Field(default=0)
+
+    @model_validator(mode="after")
+    def check(self) -> "Zone":
+        if (self.drone_count > self.link_cap):
+            raise ValueError(f"Drone count exceeded {self} link capacity")
+        return self
 
     def __eq__(self, other) -> bool:
+        if (not isinstance(other, Connection)):
+            return False
         return self.zone1 == other.zone1 and \
             self.zone2 == other.zone2
 

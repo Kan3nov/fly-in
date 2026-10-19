@@ -218,7 +218,7 @@ def parse(input_file: str):
                     f"{str(connections[idx1])}"
                     )
     drones = []
-    for x in range(nb_drones):
+    for x in range(1, nb_drones + 1):
         drones.append(Drone(id=x, visited=set([start_hub.name]),
                             cur=start_hub))
 
@@ -230,11 +230,14 @@ def parse(input_file: str):
     end_hub.max_drones = nb_drones
     end_hub.end = True
     end_hub.drone_count = 0
+    cons = {}
+    for meow in connections:
+        cons[(meow.zone1.name, meow.zone2.name)] = meow
     return Network(
         nb_drones=nb_drones,
         start_hub=start_hub,
         end_hub=end_hub,
         zones=list(zones.values()),
-        cons=connections,
+        cons=cons,
         drones=drones
         )
