@@ -12,10 +12,11 @@ if __name__ == "__main__":
         exit()
     try:
         graph = parse(sys.argv[1])
-        # while graph.next_turn():
-        #     ...
-        # print(graph.moves)
-        # print(graph.nb_turns)
+        dists = {zone.name: float("inf") for zone in graph.zones}
+        print(graph.ucs(graph.start_hub, graph.end_hub, set(), dists))
+        while not graph.next_turn():
+            ...
+        print(graph.turn_count)
     except Exception as e:
         print(e)
         exit()

@@ -54,10 +54,6 @@ def validate_hub(values: str, line_no: int, type: str = None) -> Zone:
             raise ParsingError(f"Syntax error at line {line_no}, " +
                                f"Invalid value {value} for key {key}\n" +
                                str(e))
-    if (type == "start"):
-        hub.start = True
-    elif (type == "end"):
-        hub.end = True
     return hub
 
 
@@ -225,6 +221,15 @@ def parse(input_file: str):
     for x in range(nb_drones):
         drones.append(Drone(id=x, visited=set([start_hub.name]),
                             cur=start_hub))
+
+    start_hub.max_drones = nb_drones
+    start_hub.start = True
+    start_hub.drone_count = nb_drones
+    start_hub.wait = nb_drones
+
+    end_hub.max_drones = nb_drones
+    end_hub.end = True
+    end_hub.drone_count = 0
     return Network(
         nb_drones=nb_drones,
         start_hub=start_hub,
