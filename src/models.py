@@ -43,18 +43,17 @@ class Drone(BaseModel):
             move = f"D{self.id}-{self.cur.name}-{next.name}"
             self.cur = next
             self.mid_of_link = (self.mid_of_link + 1) % 2
+            next.drone_count += 1
             return move
 
         # For drones on the start of a restricted link
-        elif (next.drone_count < next.max_drones and
-                con.drone_count < con.link_cap and
+        elif (con.drone_count < con.link_cap and
                 next.type == ZoneType.RESTRICTED):
             self.visited.add(self.cur.name)
             self.far_dest = next
             if (self.cur.drone_count == self.cur.max_drones):
                 self.cur.wait -= 1
             self.cur.drone_count -= 1
-            next.drone_count += 1
             con.drone_count += 1
             if (next.max_drones == next.drone_count):
                 next.wait += 1
@@ -244,7 +243,6 @@ class Network(BaseModel):
                     self.moves[-1].append(move)
                     drone.moved = bool(move)
                     changed = int(drone.moved)
-                    print("move: ", move, "changed: ", changed)
                     continue
                 paths: list[list[Optional[Zone], float]] = []
                 prio_path = [None, float("inf")]
@@ -265,7 +263,7 @@ class Network(BaseModel):
                 if (min_path[1] == float("inf")):  # If all paths are blocked
                     return
                 elif (min_path[1] == prio_path[1]):  # Prefer priority path
-                    next_zone = prio_path[0]
+                    next_zone: Zone = prio_path[0]
                 else:
                     next_zone = min_path[0]
                 con = self.cons.get((drone.cur.name, next_zone.name))
