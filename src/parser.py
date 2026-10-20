@@ -57,7 +57,8 @@ def validate_hub(values: str, line_no: int, type: str = None) -> Zone:
     return hub
 
 
-def validate_con(values: str, line_no: int, zones: list[Zone]) -> Connection:
+def validate_con(values: str, line_no: int,
+                 zones: dict[str, Zone]) -> Connection:
     atts = values.split()
     if (len(atts) < 1):
         raise ParsingError(f"Syntax error at line {line_no}, " +
@@ -237,7 +238,7 @@ def parse(input_file: str):
         nb_drones=nb_drones,
         start_hub=start_hub,
         end_hub=end_hub,
-        zones=list(zones.values()),
+        zones=zones,
         cons=cons,
         drones=drones
         )

@@ -1,6 +1,9 @@
 *This activity has been created as part of the 42 curriculum by klafi*
 # fly-in
 
+
+## Perfomance Optimization
+
 ## Resources
 - Dijkstra'a Algorithm
     - https://youtu.be/j0OUwduDOS0

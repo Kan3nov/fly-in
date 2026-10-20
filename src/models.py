@@ -83,28 +83,32 @@ class Network(BaseModel):
     nb_drones: int = Field(ge=1)
     start_hub: Zone
     end_hub: Zone
-    zones: list[Zone]
+    zones: dict[str, Zone]
     cons: dict[tuple[str, str], Connection]
     drones: list[Drone]
     turn_count: int = Field(default=0, ge=0)
     moves: list[list[str]] = Field(default_factory=list)
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        dists = {zone: float("inf") for zone in kwargs["zones"].keys()}
+        dists = Network.dijkstra(kwargs["end_hub"], set(), dists)
+        for zone in kwargs["zones"].values():
+            zone.dist = dists[zone.name]
+
     @model_validator(mode="after")
     def check(self) -> "Zone":
-        dists = {zone.name: float("inf") for zone in self.zones}
+        dists = {zone: float("inf") for zone in self.zones.keys()}
         if (Network.ucs(self.start_hub, self.end_hub, set(), dists)
                 == float("inf")):
             raise ValueError("The network is disconnected; " +
                              "there's no path from start to end")
-        dists = Network.dijkstra(self.end_hub, set(), dists)
-        for zone in self.zones:
-            zone.dist = dists[zone.name]
         return self
 
     def __str__(self) -> str:
         return f"nb_drones: {self.nb_drones} " +\
                f"Start: {self.start_hub.name}, End: {self.end_hub.name}" +\
-               f"\nzones: {[x.name for x in self.zones]}\n" +\
+               f"\nzones: {[x for x in self.zones.keys()]}\n" +\
                f"connections: {[str(x) for x in self.cons.values()]}"
 
     # A*
@@ -190,7 +194,7 @@ class Network(BaseModel):
         """
         Find the shortest path from a start node to all other accesible nodes.
 
-        Args:
+        Args:`
             start: the node from which each distance is computed.
             visited: already visited nodes which don't need to be explored.
             dists: dictionary of all zones with their relative distance values.
@@ -223,9 +227,10 @@ class Network(BaseModel):
         Returns:
             int: if all drones reached end; return 1, otherwise 0.
         """
-        dists = {zone.name: float("inf") for zone in self.zones}
+        dists = {zone: float("inf") for zone in self.zones.keys()}
         changed = 1
         finish = 0
+        path_cache = {}
         self.moves.append([])
         for con in self.cons.values():
             con.drone_count = 0
@@ -248,12 +253,16 @@ class Network(BaseModel):
                 prio_path = [None, float("inf")]
                 next_zone = None
                 for nebr in drone.cur.neighbors:
-                    paths.append([nebr,
-                                  Network.ucs(nebr,
-                                              self.end_hub,
-                                              drone.visited.copy(),
-                                              dists.copy())]
-                                 )
+                    if (path_cache.get(nebr.name)):
+                        paths.append(path_cache.get(nebr.name))
+                    else:
+                        paths.append([nebr,
+                                     Network.a_star(nebr,
+                                                    self.end_hub,
+                                                    drone.visited.copy(),
+                                                    dists.copy())]
+                                     )
+                        path_cache[nebr.name] = paths[-1]
                     if (nebr.type == ZoneType.PRIORITY and
                             paths[-1][1] < prio_path[1]):
                         prio_path = [nebr, paths[-1][1]]
