@@ -25,16 +25,6 @@ class Drone(BaseModel):
     far_dest: Optional[Zone] = Field(default=None)
 
     def visit(self, next: Optional[Zone], con: Optional[Connection]) -> str:
-        """
-        things to update:
-            next, cur:
-                - drone_count
-                - wait
-            con:
-                - drone_count
-            self.cur = ?
-            self.mid_of_link
-        """
         if self.moved:
             return ""
 

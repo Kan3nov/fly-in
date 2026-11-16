@@ -25,10 +25,11 @@ class GraphError(Exception):
         return '=' * 5 + "Graph Error" + '=' * 5 + '\n' + self.msg
 
 
+# tbd
 def compute_time(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        print("Casting ", func.__name__, "...", sep="")
+        print("Executing ", func.__name__, "...", sep="")
         time1 = time()
         result = func(*args, **kwargs)
         time2 = time()
