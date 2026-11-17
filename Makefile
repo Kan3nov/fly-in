@@ -1,5 +1,5 @@
 run: install 
-	@uv run python -m src
+	@uv run python -m src maps/hard/03_ultimate_challenge.txt meow
 
 install:
 	@uv sync
