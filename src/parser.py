@@ -8,7 +8,19 @@ except Exception as e:
     exit()
 
 
-def validate_hub(values: str, line_no: int, type: str = None) -> Zone:
+def validate_hub(values: str, line_no: int) -> Zone:
+    """Parse and validate a hub declaration's name, coordinates, and metadata.
+
+    Args:
+        values: Text following the hub directive.
+        line_no: Source line number used in error messages.
+
+    Returns:
+        Zone: The zone described by the declaration.
+
+    Raises:
+        ParsingError: If the declaration has invalid syntax or values.
+    """
     atts = values.split()
     if (len(atts) < 3):
         raise ParsingError(f"Syntax error at line {line_no}, " +
@@ -59,6 +71,19 @@ def validate_hub(values: str, line_no: int, type: str = None) -> Zone:
 
 def validate_con(values: str, line_no: int,
                  zones: dict[str, Zone]) -> Connection:
+    """Parse a connection declaration and link its endpoint zones.
+
+    Args:
+        values: Text following the connection directive.
+        line_no: Source line number used in error messages.
+        zones: Known zones indexed by name.
+
+    Returns:
+        Connection: The connection described by the declaration.
+
+    Raises:
+        ParsingError: If endpoints or connection metadata are invalid.
+    """
     atts = values.split()
     if (len(atts) < 1):
         raise ParsingError(f"Syntax error at line {line_no}, " +
@@ -103,12 +128,17 @@ def validate_con(values: str, line_no: int,
     return con
 
 
-def parse(input_file: str):
-    """Parse the input file and check whether it abides by the pre-defined
-     format structure of drone maps
+def parse(input_file: str) -> Network:
+    """Parse a map file and construct its validated network.
 
     Args:
-        input_file: path of the map file
+        input_file: Path to the map file.
+
+    Returns:
+        Network: Network defined by the map file.
+
+    Raises:
+        ParsingError: If the file cannot be read or its contents are invalid.
     """
     try:
         with open(input_file, 'r') as f:
@@ -164,7 +194,7 @@ def parse(input_file: str):
                 raise ParsingError(
                     f"Found duplicates for zone name: \"{start_hub.name}\""
                     )
-            start_hub = validate_hub(value, l_num, "start")
+            start_hub = validate_hub(value, l_num)
             zones[start_hub.name] = start_hub
         elif (key == "end_hub"):
             if (end_hub):
@@ -174,7 +204,7 @@ def parse(input_file: str):
                 raise ParsingError(
                     f"Found duplicates for zone name: \"{end_hub.name}\""
                     )
-            end_hub = validate_hub(value, l_num, "end")
+            end_hub = validate_hub(value, l_num)
             zones[end_hub.name] = end_hub
         else:
             raise ParsingError(f"Undefined directive at line #{l_num}")

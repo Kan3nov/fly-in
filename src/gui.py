@@ -9,10 +9,27 @@ pygame.init()
 FONT1 = pygame.font.Font(None, 15)
 FONT2 = pygame.font.Font(None, 40)
 FPS = 60
+min_x: int
+min_y: int
+grid_width: int
+grid_height: int
+cell_width: int
+cell_height: int
 
 
-class Bird(pygame.sprite.Sprite):
+class Bird(pygame.sprite.Sprite, object):
+    """Render and animate a drone as a bird sprite."""
+
     def __init__(self, cur_cord: tuple[int, int], drone: models.Drone):
+        """Create an animated sprite for a drone.
+
+        Args:
+            cur_cord: Initial center position of the sprite in pixels.
+            drone: Drone represented by this sprite.
+
+        Returns:
+            None.
+        """
         super().__init__()
         self.image = pygame.image.load(
             "assets/bird_animation/00.png").convert_alpha()
@@ -24,9 +41,17 @@ class Bird(pygame.sprite.Sprite):
         self.stepx = 0
         self.stepy = 0
         self.steps = 0
-        self.animation = 0
+        self.animation = 0.0
 
     def update(self, dest: tuple[int, int]) -> int:
+        """Advance the animation and move toward the destination.
+
+        Args:
+            dest: Destination center in pixels, or None when idle.
+
+        Returns:
+            int: 1 while a move is in progress; otherwise, 0.
+        """
         if dest:
             dist = (dest[0] - self.rect.centerx, dest[1] - self.rect.centery)
             self.steps += 1
@@ -63,7 +88,17 @@ class Bird(pygame.sprite.Sprite):
 
 
 class Background(pygame.sprite.Sprite):
-    def __init__(self, image_path):
+    """Render the full-screen simulation background."""
+
+    def __init__(self, image_path: str):
+        """Create a screen-sized background sprite.
+
+        Args:
+            image_path: Path to the background image.
+
+        Returns:
+            None.
+        """
         super().__init__()
         self.image = pygame.image.load(image_path).convert_alpha()
         self.image = pygame.transform.scale(self.image, (1920, 1080))
@@ -71,12 +106,21 @@ class Background(pygame.sprite.Sprite):
 
 
 class Cloud(pygame.sprite.Sprite):
+    """Render a labeled and optionally recolored zone sprite."""
+
     def __init__(self, image_path: str, zone: models.Zone):
+        """Create a labeled sprite for a network zone.
+
+        Args:
+            image_path: Path to the zone image.
+            zone: Zone whose name, color, and position are displayed.
+
+        Returns:
+            None.
+        """
         super().__init__()
         self.image = pygame.image.load(image_path).convert_alpha()
         self.image = pygame.transform.scale(self.image, (64, 64))
-        self.name= "hello"
-
         name_surf = FONT1.render(zone.name, False, (225, 255, 235))
 
         new_width = max((self.image.get_width(), name_surf.get_width()))
@@ -86,29 +130,39 @@ class Cloud(pygame.sprite.Sprite):
         new_image.blit(self.image, (0, 0))
         new_image.blit(name_surf, (0, self.image.get_rect().bottom))
         self.image = new_image.convert_alpha()
-        if zone.color in set(pygame.colordict.THECOLORS.keys()):
-            self.image = color_swap(self.image, (242, 241, 231), zone.color)
+        if (zone.color in set(pygame.colordict.THECOLORS.keys())
+                and not (zone.start or zone.end)):
+            self.image = apply_color(self.image, pygame.Color(zone.color))
         self.rect = self.image.get_rect(
             center=get_zone_pos(zone))
 
 
-def color_swap(surf: pygame.Surface, old_c: pygame.Color, new_c: pygame.Color):
-    img_copy = pygame.Surface(surf.get_size())
-    img_copy.fill(new_c)
-    trans_pixels = []
-    for x in range(surf.get_width()):
-        for y in range(surf.get_height()):
-            if surf.get_at((x, y))[3] == 0:
-                trans_pixels.append((x, y))
-    surf.set_colorkey(old_c)
-    img_copy.blit(surf, (0, 0))
-    for x, y in trans_pixels:
-        img_copy.set_at((x, y), (0, 0, 0, 0))
-    return img_copy.convert_alpha()
+def apply_color(surf: pygame.Surface, color: pygame.Color) -> pygame.Surface:
+    filter = surf.copy()
+
+    colored_pixels = []
+    for x in range(filter.get_width()):
+        for y in range(filter.get_height()):
+            if filter.get_at((x, y))[3] != 0:
+                colored_pixels.append((x, y))
+    for pixel in colored_pixels:
+        color.a = 80
+        surf.set_at(pixel, color)
+    filter.blit(surf, (0, 0))
+    return filter
 
 
 def draw_connections(screen: pygame.Surface,
                      zones: list[models.Zone]) -> None:
+    """Draw each network connection between zones on the screen.
+
+    Args:
+        screen: Surface on which to draw the connections.
+        zones: Zones whose neighbor relationships define the connections.
+
+    Returns:
+        None.
+    """
     visited = set()
     for zone in zones:
         cord1 = get_zone_pos(zone)
@@ -120,13 +174,29 @@ def draw_connections(screen: pygame.Surface,
         visited.add(zone.name)
 
 
-def get_zone_pos(zone: models.Zone):
+def get_zone_pos(zone: models.Zone) -> tuple[int, int]:
+    """Convert a zone's grid coordinates to its screen-space center.
+
+    Args:
+        zone: Zone to position.
+
+    Returns:
+        tuple[int, int]: Pixel coordinates of the zone's center.
+    """
     x = (zone.x - min_x) * cell_width + cell_width // 2
     y = (zone.y - min_y) * cell_height + cell_height // 2
     return (x, y)
 
 
-def display_simulation(graph: models.Network):
+def display_simulation(graph: models.Network) -> None:
+    """Display an animated visualization of a completed network simulation.
+
+    Args:
+        graph: Network containing zones, drones, and recorded moves.
+
+    Returns:
+        None.
+    """
     global min_x, min_y, grid_height, grid_width, cell_width, cell_height
     list_x: list[int] = []
     list_y: list[int] = []
@@ -158,7 +228,7 @@ def display_simulation(graph: models.Network):
         else:
             zones.add(Cloud("assets/cloud.png", zone))
 
-    background = Background("assets/sky.png")
+    background = Background("assets/1.png")
     background_group = pygame.sprite.GroupSingle(background)
     drone_group = pygame.sprite.Group()
     init_cord = get_zone_pos(graph.start_hub)
@@ -183,7 +253,7 @@ def display_simulation(graph: models.Network):
         background_group.draw(screen)
         draw_connections(screen, graph.zones.values())
         zones.draw(screen)
-        move_dict = {}
+        move_dict: dict = {}
         for bird in drone_group.sprites():
             move_dict[bird.drone.id] = None
         for move in graph.moves[turn]:
@@ -215,7 +285,7 @@ def display_simulation(graph: models.Network):
         turns_text = FONT2.render(f"{turn}", True, "white")
         turns_rect = turns_text.get_rect(center=counter_circle.center)
         screen.blit(turns_text, turns_rect)
-        
+
         pygame.display.update()
         clock.tick(FPS)
         if turn >= len(graph.moves):

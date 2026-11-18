@@ -1,38 +1,46 @@
-try:
-    from typing import Any, Callable
-    from time import time
-    from functools import wraps
-except Exception as e:
-    print(e)
-    exit()
-
-
 class ParsingError(Exception):
+    """Report invalid map-file syntax or values."""
+
     def __init__(self, msg: str):
+        """Create a parsing error with a descriptive message.
+
+        Args:
+            msg: Explanation of the parsing failure.
+
+        Returns:
+            None.
+        """
         super().__init__(self)
         self.msg = msg
 
     def __str__(self) -> str:
+        """Format the parsing error for display.
+
+        Returns:
+            str: Error heading followed by the stored message.
+        """
         return '=' * 5 + "Parsing Error" + '=' * 5 + '\n' + self.msg
 
 
 class GraphError(Exception):
+    """Report an invalid or unusable network graph."""
+
     def __init__(self, msg: str):
+        """Create a graph error with a descriptive message.
+
+        Args:
+            msg: Explanation of the graph failure.
+
+        Returns:
+            None.
+        """
         super().__init__(self)
         self.msg = msg
 
     def __str__(self) -> str:
+        """Format the graph error for display.
+
+        Returns:
+            str: Error heading followed by the stored message.
+        """
         return '=' * 5 + "Graph Error" + '=' * 5 + '\n' + self.msg
-
-
-# tbd
-def compute_time(func: Callable[..., Any]) -> Callable[..., Any]:
-    @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        print("Executing ", func.__name__, "...", sep="")
-        time1 = time()
-        result = func(*args, **kwargs)
-        time2 = time()
-        print(f"Execution took {time2 - time1:.3f} seconds")
-        return result
-    return wrapper
