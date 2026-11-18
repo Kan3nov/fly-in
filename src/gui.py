@@ -6,7 +6,9 @@ except Exception as e:
     exit()
 
 pygame.init()
-FONT = pygame.font.Font(None, 15)
+FONT1 = pygame.font.Font(None, 15)
+FONT2 = pygame.font.Font(None, 40)
+FPS = 60
 
 
 class Bird(pygame.sprite.Sprite):
@@ -16,31 +18,48 @@ class Bird(pygame.sprite.Sprite):
             "assets/bird_animation/00.png").convert_alpha()
         self.image = pygame.transform.scale(self.image, (32, 32))
         self.drone = drone
-        self.rect = self.image.get_rect(topleft=cur_cord)
+        self.rect = self.image.get_rect(center=cur_cord)
         self.movex = 0
         self.movey = 0
+        self.stepx = 0
+        self.stepy = 0
+        self.steps = 0
         self.animation = 0
 
-    def update(self, dist: tuple[int, int]) -> int:
-        if (dist == (0, 0)):
-            self.movex = 0
-            self.movey = 0
-            return 0
-        self.movex += dist[0] / 60
-        self.movey += dist[1] / 60
-        if self.movex >= 1:
-            self.rect.x += dist[0]
-            self.movex -= 1
-        if self.movey >= 1:
-            self.rect.y += dist[1]
-            self.movey -= 1
+    def update(self, dest: tuple[int, int]) -> int:
+        if dest:
+            dist = (dest[0] - self.rect.centerx, dest[1] - self.rect.centery)
+            self.steps += 1
+            if self.stepx == 0:
+                self.stepx = dist[0] / FPS
+            if self.stepy == 0:
+                self.stepy = dist[1] / FPS
+        if self.movex >= 1 or self.movex <= -1:
+            self.rect.x += (self.movex // 1)
+            self.movex = (self.movex - self.movex // 1)
+        if self.movey >= 1 or self.movey <= -1:
+            self.rect.y += (self.movey // 1)
+            self.movey = (self.movey - self.movey // 1)
+        self.movex += self.stepx
+        self.movey += self.stepy
         self.animation += 0.2
         if (self.animation >= 8):
             self.animation = 0
         self.image = pygame.transform.scale(pygame.image.load(
-            f"assets/bird_animation/0{self.animation // 1}.png"
-        ), (32, 32))
-        return (1)
+            f"assets/bird_animation/0{int(self.animation)}.png"
+        ), (32, 32)).convert_alpha()
+        if (dest):
+            if (self.steps == FPS):
+                self.rect.centerx = dest[0]
+                self.rect.centery = dest[1]
+                self.stepx = 0
+                self.stepy = 0
+                self.steps = 0
+                self.movex = 0
+                self.movey = 0
+                return 0
+            return (1)
+        return 0
 
 
 class Background(pygame.sprite.Sprite):
@@ -58,7 +77,7 @@ class Cloud(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, (64, 64))
         self.name= "hello"
 
-        name_surf = FONT.render(zone.name, False, (225, 255, 235))
+        name_surf = FONT1.render(zone.name, False, (225, 255, 235))
 
         new_width = max((self.image.get_width(), name_surf.get_width()))
         new_height = self.image.get_height() + name_surf.get_height()
@@ -71,9 +90,6 @@ class Cloud(pygame.sprite.Sprite):
             self.image = color_swap(self.image, (242, 241, 231), zone.color)
         self.rect = self.image.get_rect(
             center=get_zone_pos(zone))
-
-    def update():
-        ...
 
 
 def color_swap(surf: pygame.Surface, old_c: pygame.Color, new_c: pygame.Color):
@@ -114,7 +130,7 @@ def display_simulation(graph: models.Network):
     global min_x, min_y, grid_height, grid_width, cell_width, cell_height
     list_x: list[int] = []
     list_y: list[int] = []
-    for name, zone in graph.zones.items():
+    for zone in graph.zones.values():
         list_x.append(zone.x)
         list_y.append(zone.y)
 
@@ -146,12 +162,14 @@ def display_simulation(graph: models.Network):
     background_group = pygame.sprite.GroupSingle(background)
     drone_group = pygame.sprite.Group()
     init_cord = get_zone_pos(graph.start_hub)
+    birds_dict = {}
     for drone in graph.drones:
         drone_surf = Bird(init_cord, drone)
         drone_group.add(drone_surf)
+        birds_dict[drone.id] = drone_surf
 
     clock = pygame.time.Clock()
-
+    turn = 0
     while (True):
         # Events handler
         for event in pygame.event.get():
@@ -165,7 +183,41 @@ def display_simulation(graph: models.Network):
         background_group.draw(screen)
         draw_connections(screen, graph.zones.values())
         zones.draw(screen)
-        for bird in drone_group:
-            bird.update()
+        move_dict = {}
+        for bird in drone_group.sprites():
+            move_dict[bird.drone.id] = None
+        for move in graph.moves[turn]:
+            if move == "":
+                continue
+            if (len(move.split("-")) == 3):
+                drone_name, start_zone_name, dest_zone_name = move.split("-")
+                drone_id = int(drone_name[1:])
+                dest_zone = get_zone_pos(graph.zones[dest_zone_name])
+                start_zone = get_zone_pos(graph.zones[start_zone_name])
+                mid_point = ((dest_zone[0] + start_zone[0]) // 2,
+                             (dest_zone[1] + start_zone[1]) // 2)
+                move_dict[drone_id] = mid_point
+            else:
+                drone_name, dest_zone_name = move.split("-")
+                drone_id = int(drone_name[1:])
+                dest_zone = graph.zones[dest_zone_name]
+                move_dict[drone_id] = get_zone_pos(dest_zone)
+        next_turn = 1
+        for drone_id, dest in move_dict.items():
+            moved = birds_dict[drone_id].update(dest)
+            if (moved == 1):
+                next_turn = 0
+        drone_group.draw(screen)
+        if next_turn:
+            turn += 1
+        counter_circle = pygame.draw.circle(screen, "#bba9d4", (50, 50), 50)
+        pygame.draw.circle(screen, "#8b8aea", (50, 50), 50, width=3)
+        turns_text = FONT2.render(f"{turn}", True, "white")
+        turns_rect = turns_text.get_rect(center=counter_circle.center)
+        screen.blit(turns_text, turns_rect)
+        
         pygame.display.update()
-        clock.tick(60)
+        clock.tick(FPS)
+        if turn >= len(graph.moves):
+            pygame.quit()
+            exit()

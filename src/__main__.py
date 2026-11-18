@@ -8,7 +8,6 @@ except Exception as e:
     exit()
 
 
-@compute_time
 def main():
     if (len(sys.argv) != 3):
         print("Invalid number of arguments, should be 2")
@@ -17,7 +16,7 @@ def main():
     graph = parse(sys.argv[1])
     dists = {zone.name: float("inf") for zone in graph.zones.values()}
     print("Map name:", sys.argv[1])
-    print("The distance between start and end:",
+    print("Distance between start and end:",
             graph.ucs(graph.start_hub, graph.end_hub, set(), dists))
     while not graph.next_turn():
         ...

@@ -30,7 +30,7 @@ class Drone(BaseModel):
 
         # If in the midst of a restricted connection
         if (self.mid_of_link == 1):
-            move = f"D{self.id}-{self.cur.name}-{next.name}"
+            move = f"D{self.id}-{next.name}"
             self.cur = next
             self.mid_of_link = (self.mid_of_link + 1) % 2
             next.drone_count += 1
@@ -48,7 +48,8 @@ class Drone(BaseModel):
             if (next.max_drones == next.drone_count):
                 next.wait += 1
             self.mid_of_link = (self.mid_of_link + 1) % 2
-            return f"D{self.id}-{next.name}"
+            move = f"D{self.id}-{self.cur.name}-{next.name}"
+            return move
 
         # For non-restricted zones
         elif (next.drone_count < next.max_drones and
