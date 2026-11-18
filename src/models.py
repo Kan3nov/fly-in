@@ -43,7 +43,7 @@ class Drone(BaseModel):
         if self.moved:
             return ""
 
-        if (not next or not con):
+        if (not next):
             return ""
         # If in the midst of a restricted connection
         elif (self.mid_of_link == 1):
@@ -51,6 +51,9 @@ class Drone(BaseModel):
             self.cur = next
             self.mid_of_link = 0
             return move
+
+        if (not con):
+            return ""
 
         # For drones on the start of a restricted link
         elif (con.drone_count < con.link_cap and
